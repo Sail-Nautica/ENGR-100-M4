@@ -1,0 +1,4 @@
+Use either
+
+all-MiniLM-L6-v2
+paraphrase-MiniLM-L6-v2

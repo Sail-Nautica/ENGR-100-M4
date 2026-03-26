@@ -1,0 +1,7 @@
+The test.csv file contains a set of 500 questions, each with a corresponding label from one of 50 fine-grained categories. These questions can be used to evaluate the performance of question classification models
+
+label-coarse: The coarse-grained label for the question. (String)
+label-fine: The fine-grained label for the question. (String)
+text: The text of the question. (String)
+
+https://cogcomp.seas.upenn.edu/Data/QA/QC/
