@@ -1,0 +1,77 @@
+# newCodeBase Documentation
+
+## Purpose
+- Compare sentence-embedding models for question classification with a linear PyTorch classifier.
+- Evaluate fine and coarse labels, inspect confusion matrices, and diagnose weak classes.
+
+## Inputs
+- Notebook: newCodeBase.ipynb
+- Dataset: question_classificatrion/question_classification_dataset/train.csv
+- Dataset: question_classificatrion/question_classification_dataset/test.csv
+
+## Dependencies
+- sentence-transformers
+- torch
+- scikit-learn
+- pandas
+- numpy
+- matplotlib
+- seaborn
+- pillow (for PDF merge)
+
+## Workflow Summary
+1) Load train/test CSVs and inspect label counts.
+2) Create a train/holdout split from train.csv (test_size=0.1, stratified by label-fine).
+3) Define two embedding models: all-MiniLM-L6-v2 and paraphrase-MiniLM-L6-v2.
+4) Embed text with SentenceTransformer and train a linear classifier (nn.Linear) using MSELoss + SGD.
+5) Evaluate baseline performance on the provided test set:
+   - fine-label confusion matrices
+   - coarse-label confusion matrices (map fine to coarse)
+   - accuracy table
+6) Add extra holdout samples for coarse labels 1, 2, 5 (30% increase per class).
+7) Retrain the same pipeline on the augmented training set and re-evaluate.
+8) Generate additional diagnostics:
+   - loss curves
+   - random 6-label subset confusion matrices
+   - top/bottom-10 label confusion matrices
+   - per-label accuracy bar chart
+   - learning-rate vs epoch grid accuracy tables
+
+## Key Functions
+- embed_texts: run SentenceTransformer encoding on text.
+- labels_to_index, one_hot_encode, make_multiclass_tensors: prepare labels and tensors.
+- model_fit_pytorch: SGD training loop with MSE loss.
+- pytorch_model_multiclass_inference: argmax inference.
+- plot_conf_mat: normalized confusion matrix plotting.
+- train_one_embedding_pipeline: end-to-end embedding, train, and predict.
+- compute_accuracy_grid_for_model, plot_accuracy_grid_table: grid search diagnostics.
+
+## Training Details
+- Model: single linear layer (nn.Linear).
+- Loss: MSELoss on one-hot labels.
+- Optimizer: SGD.
+- Epochs:
+  - paraphrase-MiniLM-L6-v2: 10000
+  - all-MiniLM-L6-v2: 80000
+- Learning rate: 7
+- Seeds: RANDOM_STATE = 42, numpy and torch seeds set.
+
+## Outputs
+- matrices/:
+  - baseline_{model}_fine.png
+  - baseline_{model}_coarse.png
+- new_matrices/:
+  - baseline_{model}_loss.png
+  - augmented_{model}_loss.png
+  - augmented_{model}_fine.png
+  - augmented_{model}_coarse.png
+  - augmented_{model}_fine_subset5.png
+  - fine_top10_{model}.png
+  - fine_bottom10_{model}.png
+  - lr_epoch_accuracy_{model}.png
+  - combined_matrices.pdf
+
+## Notes
+- The "random 5-label subset" plot uses size=6 in code.
+- The notebook markdown says 80/20 split, but code uses test_size=0.1 (90/10 split).
+- The LR/epoch grid trains multiple models per embedding; it is expensive.
