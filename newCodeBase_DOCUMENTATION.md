@@ -78,3 +78,76 @@
 - Output file pattern: `lr_epoch_accuracy_*.png`
 - Output file pattern: `lr_epoch_accuracy_{model_name}.png`
 - Output file pattern: `{subset_name}_{model_name}.png`
+
+## Holdout Augmentation Sweep
+Assumes the notebook variables and helper functions are already defined (splits, class mappings, and training helpers).
+
+```python
+import numpy as np
+import pandas as pd
+from sklearn.metrics import accuracy_score
+
+augmentation_percentages = [0.05, 0.1, 0.2, 0.3, 0.4]
+target_coarse_labels = sorted(train_split_df["label-coarse"].unique().tolist())
+sweep_rows = []
+
+for pct in augmentation_percentages:
+    train_aug = train_split_df.copy()
+    holdout_aug = holdout_split_df.copy()
+
+    train_counts = train_aug["label-coarse"].value_counts()
+    added_rows = []
+    for coarse_label in target_coarse_labels:
+        desired_increase = int(np.ceil(train_counts.get(coarse_label, 0) * pct))
+        candidates = holdout_aug[holdout_aug["label-coarse"] == coarse_label]
+        take_n = min(desired_increase, len(candidates))
+        if take_n == 0:
+            continue
+        sampled = candidates.sample(n=take_n, random_state=RANDOM_STATE)
+        added_rows.append(sampled)
+        holdout_aug = holdout_aug.drop(index=sampled.index)
+
+    if added_rows:
+        added_df = pd.concat(added_rows, ignore_index=True)
+        train_aug = pd.concat([train_aug, added_df], ignore_index=True)
+
+    X_train_text = train_aug["text"].tolist()
+    y_train_labels = train_aug["label-fine"].to_numpy()
+
+    model_name = "all-MiniLM-L6-v2"
+    artifacts = train_one_embedding_pipeline(
+        model_name=model_name,
+        X_train_text=X_train_text,
+        X_test_text=X_test_text,
+        y_train_labels=y_train_labels,
+        y_test_labels=y_test_labels,
+        class_to_idx=class_to_idx,
+        class_names=class_names,
+        epochs=2000,
+        lr=0.02,
+    )
+
+    X_holdout_text = holdout_aug["text"].tolist()
+    y_holdout_labels = holdout_aug["label-fine"].to_numpy()
+    X_holdout_emb = embed_texts(model_name, X_holdout_text)
+    X_holdout_tensor, _, y_holdout_idx = make_multiclass_tensors(
+        X_holdout_emb, y_holdout_labels, class_to_idx
+    )
+    _, holdout_pred_idx = pytorch_model_multiclass_inference(
+        artifacts["trained_model"], X_holdout_tensor
+    )
+
+    sweep_rows.append(
+        {
+            "pct_added": pct,
+            "train_size": len(train_aug),
+            "holdout_size": len(holdout_aug),
+            "test_accuracy": accuracy_score(
+                artifacts["y_test_idx"], artifacts["test_pred_idx"]
+            ),
+            "holdout_accuracy": accuracy_score(y_holdout_idx, holdout_pred_idx),
+        }
+    )
+
+pd.DataFrame(sweep_rows)
+```
